@@ -1,0 +1,162 @@
+/*
+
+Bike Divvy dataset, a bike share company in Chicago, data from November 2020 to October 2021
+
+Skills used: Temp Tables, CTEs, unions, converting data types, aggregate functions, CASE statements
+
+Data uploaded into Google BigQuery to prepare it for analysis in Tableau
+
+*/
+
+CREATE TEMP TABLE bike_project_temp AS
+    WITH bike_data_consolidated AS 
+        (
+        SELECT 
+            ride_id,
+            rideable_type,
+            started_at,
+            ended_at,
+            start_station_name,
+            CAST (start_station_id AS STRING) as start_station_id,
+            end_station_name, 
+            CAST(end_station_id AS STRING) as end_station_id,
+            start_lat,
+            start_lng,
+            end_lat,
+            end_lng,
+            member_casual
+        FROM `bike_project.nov_2020`
+    UNION ALL 
+        SELECT *
+        FROM `bike_project.dec_2020` 
+    UNION ALL
+        SELECT *
+        FROM `bike_project.jan_2021` 
+    UNION ALL
+        SELECT *
+        FROM `bike_project.feb_2021` 
+    UNION ALL
+        SELECT *
+        FROM `bike_project.mar_2021` 
+    UNION ALL
+        SELECT *
+        FROM `bike_project.apr_2021`
+    UNION ALL
+        SELECT *
+        FROM `bike_project.may_2021`  
+    UNION ALL
+        SELECT *
+        FROM `bike_project.jun_2021` 
+    UNION ALL
+        SELECT *
+        FROM `bike_project.jul_2021` 
+    UNION ALL
+        SELECT *
+        FROM `bike_project.aug_2021` 
+    UNION ALL
+        SELECT *
+        FROM `bike_project.sep_2021` 
+    UNION ALL
+        SELECT *
+        FROM `bike_project.oct_2021` 
+        ),
+    bike_table_12_months AS 
+        (
+        SELECT 
+            ride_id,
+            rideable_type,
+            started_at,
+            ended_at,
+            EXTRACT (DAYOFWEEK FROM started_at) AS day_of_week,
+            EXTRACT (MONTH FROM started_at) AS month,
+            SUBSTR(CAST(started_at AS string),12,8) AS time_of_day,
+            TIMESTAMP_DIFF(ended_at, started_at, minute) AS trip_duration,
+            start_station_name,
+            end_station_name,
+            member_casual
+        FROM `bike_data_consolidated`
+        WHERE 
+            TIMESTAMP_DIFF(ended_at, started_at, minute) >= 1 
+        ORDER BY started_at ASC
+        )
+SELECT 
+    ride_id,
+    rideable_type,
+    started_at,
+    ended_at,
+    CASE 
+        WHEN day_of_week = 1 THEN 'Sunday' 
+        WHEN day_of_week = 2 THEN 'Monday'
+        WHEN day_of_week = 3 THEN 'Tuesday'
+        WHEN day_of_week = 4 THEN 'Wednesday'
+        WHEN day_of_week = 5 THEN 'Thursday'
+        WHEN day_of_week = 6 THEN 'Friday'
+        ELSE 'Saturday'
+    END AS day_rented,
+    CASE 
+        WHEN month = 1 THEN 'January'
+        WHEN month = 2 THEN 'February'
+        WHEN month = 3 THEN 'March'
+        WHEN month = 4 THEN 'April'
+        WHEN month = 5 THEN 'May'
+        WHEN month = 6 THEN 'June'
+        WHEN month = 7 THEN 'July'
+        WHEN month = 8 THEN 'August'
+        WHEN month = 9 THEN 'September'
+        WHEN month = 10 THEN 'October'
+        WHEN month = 11 THEN 'November'
+        ELSE 'December'
+    END AS month_rented,
+    time_of_day,
+    trip_duration,
+    start_station_name,
+    end_station_name,
+    member_casual
+FROM bike_table_12_months
+WHERE trip_duration <= 1440
+ORDER BY started_at ASC 
+;
+
+SELECT *
+FROM bike_project_temp;
+
+--Checking for duplicates by counting unique bike_id records
+--Total should be 5,292,951
+SELECT 
+    COUNT(ride_id) AS ride_id_count
+FROM bike_project_temp;
+
+--Finding the difference between annual member's riding habits and casual rider's (one-time pass) riding habits
+SELECT 
+    member_casual, 
+    COUNT(member_casual) AS total_rides, 
+    AVG(trip_duration) AS average_ride_in_minutes,
+FROM `bike_project_temp` 
+GROUP BY member_casual;
+
+--Riding habits based on the month and day of the week
+SELECT 
+    member_casual,
+    day_rented,
+    month_rented,
+    COUNT(member_casual) AS total_rides,
+    AVG (trip_duration) AS average_ride_in_minutes,
+FROM `bike_project_temp` 
+GROUP BY member_casual, day_rented, month_rented
+ORDER BY member_casual;
+
+--Rides on Christmas, because I'm curious
+SELECT 
+    member_casual, 
+    day_rented,
+    EXTRACT(MONTH FROM started_at) as month,
+    EXTRACT(DAY FROM started_at) as day,   
+    EXTRACT(YEAR FROM started_at) as year,
+    COUNT(member_casual) AS total_rides,
+    AVG(trip_duration) AS average_minutes_per_ride
+ FROM `bike_project_temp` 
+ WHERE 
+    EXTRACT(MONTH FROM started_at) = 12 AND 
+    EXTRACT(DAY FROM started_at) = 25 AND 
+    EXTRACT(YEAR FROM started_at) = 2020
+ GROUP BY member_casual, day_rented, month, day, year;
