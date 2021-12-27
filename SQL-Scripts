@@ -2,7 +2,7 @@
 
 Bike Divvy dataset, a bike share company in Chicago, data from November 2020 to October 2021
 
-Skills used: Temp Tables, CTEs, unions, converting data types, aggregate functions, CASE statements
+Skills used: Temp Tables, nested CTEs, unions, converting data types, aggregate functions, CASE statements (in place of FORMAT_DATE functions)
 
 Data uploaded into Google BigQuery to prepare it for analysis in Tableau
 
